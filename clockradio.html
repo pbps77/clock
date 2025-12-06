@@ -260,6 +260,52 @@
       color: var(--accent);
       font-weight: 700;
     }
+
+    /* Channel Dial Styles */
+    .channel-dial {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #2a2a2a, #1a1a1a);
+      border: 3px solid #333;
+      position: relative;
+      cursor: pointer;
+      box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.8), 0 4px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    .channel-dial::before {
+      content: '';
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      width: 4px;
+      height: 35px;
+      background: #ff9500;
+      transform-origin: bottom center;
+      transform: translateX(-50%) rotate(var(--channel-dial-rotation, 0deg));
+      border-radius: 2px;
+      box-shadow: 0 0 8px #ff9500;
+      transition: transform 0.1s ease;
+    }
+
+    .channel-dial::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 20px;
+      background: #444;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      border: 2px solid #555;
+    }
+
+    .channel-label {
+      font-size: 14px;
+      color: #ff9500;
+      font-weight: 700;
+    }
     
     .tip {
       margin-top: 10px;
@@ -342,8 +388,12 @@
             <div class="volume-dial" id="volumeDial"></div>
             <button id="stopBtn" style="width: 80px; height: 80px; font-size: 14px; border-radius: 8px;">정지</button>
             <button id="randomBtn" style="width: 80px; height: 80px; font-size: 14px; border-radius: 8px;">랜덤</button>
+            <div class="channel-dial" id="channelDial"></div>
           </div>
-          <div class="volume-level" id="volumeLevel">30</div>
+          <div style="display: flex; gap: 20px;">
+            <div class="volume-level" id="volumeLevel">30</div>
+            <div class="channel-label" id="channelLabel">1/16</div>
+          </div>
         </div>
 
       </div>
@@ -413,7 +463,7 @@
     { id: "afkn-okinawa", name: "AFN GO Gravity", url: "https://18243.live.streamtheworld.com/AFN_GRVAAC.aac", type: "audio/aac" }
   ];
 
-  const state = { current: null, hls: null };
+  const state = { current: null, hls: null, currentChannelIndex: 0 };
 
   const el = {
     grid: document.getElementById("presetGrid"),
@@ -427,7 +477,9 @@
     playCustom: document.getElementById("playCustom"),
     volumeDial: document.getElementById("volumeDial"),
     volumeLevel: document.getElementById("volumeLevel"),
-    randomBtn: document.getElementById("randomBtn")
+    randomBtn: document.getElementById("randomBtn"),
+    channelDial: document.getElementById("channelDial"),
+    channelLabel: document.getElementById("channelLabel")
   };
 
   function isHlsUrl(u=""){ return /.m3u8(\?|$)/i.test(u); }
@@ -641,8 +693,128 @@
       if (PRESETS.length > 0) {
         const randomIndex = Math.floor(Math.random() * PRESETS.length);
         const randomStation = PRESETS[randomIndex];
+        state.currentChannelIndex = randomIndex;
+        updateChannelDial();
         playSource(randomStation);
       }
+    });
+
+    // 채널 다이얼 기능
+    function updateChannelDial() {
+      const rotation = (state.currentChannelIndex / PRESETS.length) * 360;
+      el.channelDial.style.setProperty('--channel-dial-rotation', rotation + 'deg');
+      el.channelLabel.textContent = `${state.currentChannelIndex + 1}/${PRESETS.length}`;
+    }
+
+    // 튜닝 소리 생성 함수
+    function playTuningSound() {
+      try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.frequency.value = 800; // 튜닝 음파
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.1);
+      } catch(e) {}
+    }
+
+    let isChannelDragging = false;
+    let lastChannelIndex = state.currentChannelIndex;
+    let channelDragStartX = 0;
+    let channelDragStartY = 0;
+
+    function getChannelFromAngle(x, y, rect) {
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      let angle = Math.atan2(y - centerY, x - centerX) * (180 / Math.PI) + 90;
+      if (angle < 0) angle += 360;
+      const channelIndex = Math.round((angle / 360) * PRESETS.length) % PRESETS.length;
+      return channelIndex;
+    }
+
+    el.channelDial.addEventListener('mousedown', (e) => {
+      isChannelDragging = true;
+      lastChannelIndex = state.currentChannelIndex;
+      channelDragStartX = e.clientX;
+      channelDragStartY = e.clientY;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isChannelDragging) return;
+      const rect = el.channelDial.getBoundingClientRect();
+      const channel = getChannelFromAngle(e.clientX, e.clientY, rect);
+      if (channel !== state.currentChannelIndex) {
+        state.currentChannelIndex = channel;
+        updateChannelDial();
+        playTuningSound();
+      }
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      if (!isChannelDragging) return;
+      isChannelDragging = false;
+      
+      // 방향 감지: X축 이동에 따라 다음/이전 채널로
+      const deltaX = e.clientX - channelDragStartX;
+      const deltaY = e.clientY - channelDragStartY;
+
+      let targetChannel = state.currentChannelIndex;
+      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+        targetChannel = deltaX > 0 
+          ? (state.currentChannelIndex + 1) % PRESETS.length
+          : (state.currentChannelIndex - 1 + PRESETS.length) % PRESETS.length;
+      }
+
+      state.currentChannelIndex = targetChannel;
+      updateChannelDial();
+      playSource(PRESETS[targetChannel]);
+      el.audio.play().catch(()=>{});
+    });
+
+    el.channelDial.addEventListener('touchstart', (e) => {
+      isChannelDragging = true;
+      lastChannelIndex = state.currentChannelIndex;
+      const touch = e.touches[0];
+      channelDragStartX = touch.clientX;
+      channelDragStartY = touch.clientY;
+    });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!isChannelDragging) return;
+      const rect = el.channelDial.getBoundingClientRect();
+      const touch = e.touches[0];
+      const channel = getChannelFromAngle(touch.clientX, touch.clientY, rect);
+      if (channel !== state.currentChannelIndex) {
+        state.currentChannelIndex = channel;
+        updateChannelDial();
+        playTuningSound();
+      }
+    });
+
+    document.addEventListener('touchend', (e) => {
+      if (!isChannelDragging) return;
+      isChannelDragging = false;
+      
+      // 방향 감지: X축 이동에 따라 다음/이전 채널로
+      const touch = e.changedTouches[0];
+      const deltaX = touch.clientX - channelDragStartX;
+      const deltaY = touch.clientY - channelDragStartY;
+      
+      let targetChannel = state.currentChannelIndex;
+      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+        targetChannel = deltaX > 0 
+          ? (state.currentChannelIndex + 1) % PRESETS.length
+          : (state.currentChannelIndex - 1 + PRESETS.length) % PRESETS.length;
+      }
+
+      state.currentChannelIndex = targetChannel;
+      updateChannelDial();
+      playSource(PRESETS[targetChannel]);
+      el.audio.play().catch(()=>{});
     });
 
     // 초기 로딩 시 자동 선택 해제
