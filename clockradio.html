@@ -330,17 +330,25 @@
 
       <div style="display: flex; gap: 20px; align-items: center; margin-top: 16px;">
         <!-- Audio Player -->
-        <audio id="player" style="width: 400px; display: block;" controls></audio>
+        <audio id="player" style="width: 100%; max-width: 800px; display: block;" controls></audio>
+        
+     
+      </div>
+
+     <div style="display: flex; gap: 20px; align-items: center; margin-top: 16px;">
         
         <div class="volume-dial-container" style="margin-top: 0;">
           <div style="display: flex; gap: 20px; align-items: center;">
             <div class="volume-dial" id="volumeDial"></div>
             <button id="stopBtn" style="width: 80px; height: 80px; font-size: 14px; border-radius: 8px;">정지</button>
+            <button id="randomBtn" style="width: 80px; height: 80px; font-size: 14px; border-radius: 8px;">랜덤</button>
           </div>
           <div class="volume-level" id="volumeLevel">30</div>
         </div>
 
       </div>
+
+
 
       <p class="tip" style="margin-top:12px">
         
@@ -418,7 +426,8 @@
     customUrl: document.getElementById("customUrl"),
     playCustom: document.getElementById("playCustom"),
     volumeDial: document.getElementById("volumeDial"),
-    volumeLevel: document.getElementById("volumeLevel")
+    volumeLevel: document.getElementById("volumeLevel"),
+    randomBtn: document.getElementById("randomBtn")
   };
 
   function isHlsUrl(u=""){ return /.m3u8(\?|$)/i.test(u); }
@@ -625,6 +634,15 @@
     
     document.addEventListener('touchend', () => {
       isDragging = false;
+    });
+
+    // 랜덤 버튼 클릭 핸들러
+    el.randomBtn.addEventListener('click', () => {
+      if (PRESETS.length > 0) {
+        const randomIndex = Math.floor(Math.random() * PRESETS.length);
+        const randomStation = PRESETS[randomIndex];
+        playSource(randomStation);
+      }
     });
 
     // 초기 로딩 시 자동 선택 해제
