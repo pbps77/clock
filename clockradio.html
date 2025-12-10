@@ -371,50 +371,41 @@
     <!-- Radio Section -->
     <section class="radio-section">
       
-      <div class="grid" id="presetGrid"></div>
+     <div class="grid" id="presetGrid"></div>
+
+      <div style="display: flex; gap: 20px; align-items: center; margin-top: 16px;">
+        <div class="volume-dial-container" style="margin-top: 0;">
+          <div style="display: flex; gap: 20px; align-items: center;">
+            <button id="stopBtn" style="width: 80px; height: 80px; font-size: 14px; border-radius: 8px;">정지</button>
+            <button id="randomBtn" style="width: 80px; height: 80px; font-size: 14px; border-radius: 8px;">랜덤</button>
+            <div class="channel-dial" id="channelDial"></div>
+             <div class="channel-label" id="channelLabel">1/16</div>
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 20px; align-items: center; margin-top: 16px;">
+        <!-- Audio Player -->
+        <audio id="player" style="width: 100%; max-width: 800px; display: block;" controls></audio>
+         <div class="volume-dial" id="volumeDial"></div>
+         <div class="volume-level" id="volumeLevel">30</div>
+      </div>
+
+      <p class="tip" style="margin-top:12px">
+        
+       <div class="error" id="error" style="display:none"></div>
+      </p>
+      <p class="tip" style="margin-top:12px">
+        HLS는 브라우저가 지원하면 네이티브로, 아니면 hls.js로 재생합니다.
+      </p>
+      <p class="tip" style="margin-top:12px">
+        ⚠️ 일부 스트림은 토큰/지역 제한, CORS 정책이 있을 수 있습니다.
+      </p>
 
       <div class="row">
         <input id="customUrl" type="text" placeholder="직접 URL (예: https://.../playlist.m3u8 또는 http://.../stream.mp3)" />
         <button id="playCustom">재생</button>
       </div>
 
-      <div style="display: flex; gap: 20px; align-items: center; margin-top: 16px;">
-        <!-- Audio Player -->
-        <audio id="player" style="width: 100%; max-width: 800px; display: block;" controls></audio>
-        
-     
-      </div>
-
-     <div style="display: flex; gap: 20px; align-items: center; margin-top: 16px;">
-        
-        <div class="volume-dial-container" style="margin-top: 0;">
-          <div style="display: flex; gap: 20px; align-items: center;">
-            <div class="volume-dial" id="volumeDial"></div>
-            <button id="stopBtn" style="width: 80px; height: 80px; font-size: 14px; border-radius: 8px;">정지</button>
-            <button id="randomBtn" style="width: 80px; height: 80px; font-size: 14px; border-radius: 8px;">랜덤</button>
-            <div class="channel-dial" id="channelDial"></div>
-          </div>
-          <div style="display: flex; gap: 20px;">
-            <div class="volume-level" id="volumeLevel">30</div>
-            <div class="channel-label" id="channelLabel">1/16</div>
-          </div>
-        </div>
-
-      </div>
-
-
-
-      <p class="tip" style="margin-top:12px">
-        
-        <div class="error" id="error" style="display:none"></div>
-      </p>
-      <p class="tip" style="margin-top:12px">
-        
-        HLS는 브라우저가 지원하면 네이티브로, 아니면 hls.js로 재생합니다.
-      </p>
-      <p class="tip" style="margin-top:12px">
-        ⚠️ 일부 스트림은 토큰/지역 제한, CORS 정책이 있을 수 있습니다.
-      </p>
       
     </section>
   </div>
