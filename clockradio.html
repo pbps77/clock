@@ -221,8 +221,8 @@
     }
     
     .volume-dial {
-      width: 100px;
-      height: 100px;
+      width: 144px;
+      height: 144px;
       border-radius: 50%;
       background: radial-gradient(circle at 30% 30%, #2a2a2a, #1a1a1a);
       border: 3px solid #333;
@@ -234,10 +234,10 @@
     .volume-dial::before {
       content: '';
       position: absolute;
-      top: 10px;
+      top: 8px;
       left: 50%;
-      width: 4px;
-      height: 35px;
+      width: 5px;
+      height: 48px;
       background: var(--accent);
       transform-origin: bottom center;
       transform: translateX(-50%) rotate(var(--dial-rotation, -135deg));
@@ -251,8 +251,8 @@
       position: absolute;
       top: 50%;
       left: 50%;
-      width: 20px;
-      height: 20px;
+      width: 28px;
+      height: 28px;
       background: #444;
       border-radius: 50%;
       transform: translate(-50%, -50%);
@@ -267,8 +267,8 @@
 
     /* Channel Dial Styles */
     .channel-dial {
-      width: 100px;
-      height: 100px;
+      width: 144px;
+      height: 144px;
       border-radius: 50%;
       background: radial-gradient(circle at 30% 30%, #2a2a2a, #1a1a1a);
       border: 3px solid #333;
@@ -280,10 +280,10 @@
     .channel-dial::before {
       content: '';
       position: absolute;
-      top: 10px;
+      top: 8px;
       left: 50%;
-      width: 4px;
-      height: 35px;
+      width: 5px;
+      height: 48px;
       background: #ff9500;
       transform-origin: bottom center;
       transform: translateX(-50%) rotate(var(--channel-dial-rotation, 0deg));
@@ -297,8 +297,8 @@
       position: absolute;
       top: 50%;
       left: 50%;
-      width: 20px;
-      height: 20px;
+      width: 28px;
+      height: 28px;
       background: #444;
       border-radius: 50%;
       transform: translate(-50%, -50%);
@@ -380,12 +380,17 @@
         <button id="stopBtn">Stop</button>  
       </div>
 
-      <div style="display: flex; gap: 20px; align-items: center; margin-top: 16px;">
+      <div style="display: flex; gap: 60px; align-items: center; justify-content: center; margin-top: 16px;">
  
-            <div class="channel-dial"  style="width: 40%;" id="channelDial"></div>
-             <div class="channel-label" style="width: 10%;" id="channelLabel">?</div>
-             <div class="volume-level" style="width: 10%;"id="volumeLevel">30</div>
-              <div class="volume-dial" style="width: 40%;"id="volumeDial"></div>
+            <div style="display: flex; flex-direction: column; align-items: center; width: 120px;">
+              <div class="channel-dial" id="channelDial"></div>
+              <div class="channel-label" id="channelLabel" style="min-width: 40px; text-align: center;">?</div>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; align-items: center; width: 120px;">
+              <div class="volume-dial" id="volumeDial"></div>
+              <div class="volume-level" id="volumeLevel" style="min-width: 40px; text-align: center;">50</div>
+            </div>
 
       </div>
       <div style="display: flex;  align-items: center; margin-top: 16px;">
@@ -628,12 +633,18 @@
     updateVolumeDial(50);
 
     // 볼륨 다이얼 컨트롤
+    // 범위: 210도(7시) = 0%, 150도(5시) = 100%
+    // 초기값: 50%
     let isDragging = false;
     
     let currStation =-1;
 
     function updateVolumeDial(volume) {
-      const rotation = -135 + (volume / 100) * 270; // -135deg to 135deg
+      // 210도(7시, 0%)에서 시계방향으로 회전하여 150도(5시, 100%)로
+      // 실제로는 210도에서 270도(9시)를 거쳐 330도(11시)를 지나 30도(1시)를 거쳐 150도(5시)로 간다
+      // 더 간단하게: 210도에서 시작해서 시계방향으로 300도 회전 (210 → 510 → 150)
+      // 또는 -150도에서 시작해서 시계방향으로 300도 회전
+      const rotation = 210 + (volume / 100) * 300;
       el.volumeDial.style.setProperty('--dial-rotation', rotation + 'deg');
       el.volumeLevel.textContent = volume;
       el.audio.volume = volume / 100;
@@ -642,27 +653,48 @@
     function getVolumeFromAngle(x, y, rect) {
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
+      
+      // 각도 계산
       let angle = Math.atan2(y - centerY, x - centerX) * (180 / Math.PI);
-      angle = angle + 90; // Adjust for top position
-      if (angle < -135) angle += 360;
-      if (angle > 135) angle = 135;
-      if (angle < -135) angle = -135;
-      const volume = Math.round(((angle + 135) / 270) * 100);
-      return Math.max(0, Math.min(100, volume));
+      
+      // 0~360도로 정규화
+      if (angle < 0) {
+        angle += 360;
+      }
+      
+      // 범위: 210도(7시, 0%) ~ 510도(150도 = 5시, 100%)
+      // 510도는 150도와 같음 (360도 더한 것)
+      // 210도부터 시계방향으로 300도 범위: 210 ~ 360 (150도) ~ 510도(= 150도)
+      let volume = null;
+      
+      if (angle >= 210) {
+        // 210도 이상은 범위 내
+        volume = ((angle - 210) / 300) * 100;
+      } else if (angle <= 150) {
+        // 150도 이하는 510도(=150도)를 지나온 경우
+        // angle = 0~150, 510도 = 150도이므로 가능
+        angle += 360; // 360도 더해서 510도 범위로 변환
+        volume = ((angle - 210) / 300) * 100;
+      } else {
+        // 150도 < angle < 210도는 범위 밖
+        return null;
+      }
+      
+      return Math.max(0, Math.min(100, Math.round(volume)));
     }
     
     el.volumeDial.addEventListener('mousedown', (e) => {
       isDragging = true;
       const rect = el.volumeDial.getBoundingClientRect();
       const volume = getVolumeFromAngle(e.clientX, e.clientY, rect);
-      updateVolumeDial(volume);
+      if (volume !== null) updateVolumeDial(volume);
     });
     
     document.addEventListener('mousemove', (e) => {
       if (!isDragging) return;
       const rect = el.volumeDial.getBoundingClientRect();
       const volume = getVolumeFromAngle(e.clientX, e.clientY, rect);
-      updateVolumeDial(volume);
+      if (volume !== null) updateVolumeDial(volume);
     });
     
     document.addEventListener('mouseup', () => {
@@ -675,7 +707,7 @@
       const rect = el.volumeDial.getBoundingClientRect();
       const touch = e.touches[0];
       const volume = getVolumeFromAngle(touch.clientX, touch.clientY, rect);
-      updateVolumeDial(volume);
+      if (volume !== null) updateVolumeDial(volume);
       e.preventDefault();
     });
     
@@ -684,7 +716,7 @@
       const rect = el.volumeDial.getBoundingClientRect();
       const touch = e.touches[0];
       const volume = getVolumeFromAngle(touch.clientX, touch.clientY, rect);
-      updateVolumeDial(volume);
+      if (volume !== null) updateVolumeDial(volume);
     });
     
     document.addEventListener('touchend', () => {
@@ -709,9 +741,10 @@
 
     // 채널 다이얼 기능
     function updateChannelDial() {
-      const rotation = (state.currentChannelIndex / PRESETS.length) * 360;
+      // 바늘이 12시 위치(0도)에서 시작하여 시계방향으로 회전
+      const rotation = (state.currentChannelIndex / PRESETS.length) * 360 - 90;
       el.channelDial.style.setProperty('--channel-dial-rotation', rotation + 'deg');
-      el.channelLabel.textContent = `${state.currentChannelIndex + 1}`;
+      el.channelLabel.textContent = `${state.currentChannelIndex + 1}/${PRESETS.length}`;
     }
 
     // 튜닝 소리 생성 함수
