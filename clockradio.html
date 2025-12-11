@@ -371,25 +371,28 @@
     <!-- Radio Section -->
     <section class="radio-section">
       
-     <div class="grid" id="presetGrid"></div>
+     <div class="grid" id="presetGrid">
+     </div>
+
+      <!-- Random and Stop buttons at the bottom -->
+      <div class="grid" style="margin-top: 16px;">
+        <button id="randomBtn">Random</button>
+        <button id="stopBtn">Stop</button>  
+      </div>
 
       <div style="display: flex; gap: 20px; align-items: center; margin-top: 16px;">
-        <div class="volume-dial-container" style="margin-top: 0;">
-          <div style="display: flex; gap: 5px; align-items: center;">
  
-            <button id="randomBtn" style="width: 80px; height: 80px; font-size: 14px; border-radius: 8px;">랜덤</button>
-            <div class="channel-dial" id="channelDial"></div>
-             <div class="channel-label" id="channelLabel">1/16</div>
-              <div class="volume-dial" id="volumeDial"></div>
-             <div class="volume-level" id="volumeLevel">30</div>
-          </div>
-        </div>
+            <div class="channel-dial"  style="width: 40%;" id="channelDial"></div>
+             <div class="channel-label" style="width: 10%;" id="channelLabel">?</div>
+             <div class="volume-level" style="width: 10%;"id="volumeLevel">30</div>
+              <div class="volume-dial" style="width: 40%;"id="volumeDial"></div>
+
       </div>
-      <div style="display: flex; gap: 20px; align-items: center; margin-top: 16px;">
+      <div style="display: flex;  align-items: center; margin-top: 16px;">
         <!-- Audio Player -->
-        <audio id="player" style="width: 300PX; display: block;" controls></audio>
+        <audio id="player"  controls></audio>
   
-                 <button id="stopBtn" style="width: 80px; height: 80px; font-size: 14px; border-radius: 8px;">정지</button>  
+                 <!--button id="stopBtn" style="width: 80px; height: 80px; font-size: 14px; border-radius: 8px;">정지</button-->  
       </div>
 
       <p class="tip" style="margin-top:12px">
@@ -451,7 +454,7 @@
     { id: "tbs-fm", name: "TBS FM", url: "https://cdnfm.tbs.seoul.kr/tbs/_definst_/tbs_fm_web_360.smil/playlist.m3u8", type: "application/vnd.apple.mpegurl" },
     { id: "tbs-efm", name: "TBS eFM", url: "https://cdnfm.tbs.seoul.kr/tbs/_definst_/tbs_efm_web_360.smil/playlist.m3u8", type: "application/vnd.apple.mpegurl" },
     { id: "ebs-fm", name: "EBS FM", url: "https://ebsonair.ebs.co.kr/fmradiofamilypc/familypc1m/playlist.m3u8", type: "application/vnd.apple.mpegurl" },
-    { id: "gugak", name: "국악방송", url: "https://mgugaklive.nowcdn.co.kr/gugakradio/gugakradio.stream/playlist.m3u8", type: "application/vnd.apple.mpegurl" },
+    //{ id: "gugak", name: "국악방송", url: "https://mgugaklive.nowcdn.co.kr/gugakradio/gugakradio.stream/playlist.m3u8", type: "application/vnd.apple.mpegurl" },
     { id: "afkn-daegu", name: "AFKN Daegu", url: "https://13743.live.streamtheworld.com/AFNP_DGUAAC.aac", type: "audio/aac" },
     { id: "afkn-tokyo", name: "AFN Tokyo", url: "https://25603.live.streamtheworld.com/AFNP_TKOAAC.aac", type: "audio/aac" },
     { id: "afn-01-pop", name: "#1 Pop", url: "https://19273.live.streamtheworld.com/AFN01_S01AAC.aac", type: "audio/aac" },
@@ -462,6 +465,7 @@
 
   const state = { current: null, hls: null, currentChannelIndex: 0 };
 
+  
   const el = {
     grid: document.getElementById("presetGrid"),
     title: document.getElementById("nowTitle"),
@@ -626,6 +630,8 @@
     // 볼륨 다이얼 컨트롤
     let isDragging = false;
     
+    let currStation =-1;
+
     function updateVolumeDial(volume) {
       const rotation = -135 + (volume / 100) * 270; // -135deg to 135deg
       el.volumeDial.style.setProperty('--dial-rotation', rotation + 'deg');
@@ -689,8 +695,13 @@
     el.randomBtn.addEventListener('click', () => {
       if (PRESETS.length > 0) {
         const randomIndex = Math.floor(Math.random() * PRESETS.length);
+        while (randomIndex === currStation ) {
+          randomIndex = Math.floor(Math.random() * PRESETS.length);
+        }
+         currStation =randomIndex;
         const randomStation = PRESETS[randomIndex];
         state.currentChannelIndex = randomIndex;
+       
         updateChannelDial();
         playSource(randomStation);
       }
@@ -700,7 +711,7 @@
     function updateChannelDial() {
       const rotation = (state.currentChannelIndex / PRESETS.length) * 360;
       el.channelDial.style.setProperty('--channel-dial-rotation', rotation + 'deg');
-      el.channelLabel.textContent = `${state.currentChannelIndex + 1}/${PRESETS.length}`;
+      el.channelLabel.textContent = `${state.currentChannelIndex + 1}`;
     }
 
     // 튜닝 소리 생성 함수
