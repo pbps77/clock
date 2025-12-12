@@ -342,6 +342,11 @@
       }
     }
   </style>
+<style>
+  .dimmed {
+    opacity: 0.5;
+  }
+</style>
 </head>
 <body>
   <div class="container">
@@ -999,6 +1004,24 @@
   }
 
   window.addEventListener("DOMContentLoaded", initUI);
+</script>
+<script>
+  let isDimmed = false;
+
+  function toggleClockDisplay() {
+    const clockSection = document.querySelector('.clock-section');
+    isDimmed = !isDimmed;
+    clockSection.classList.toggle('dimmed', isDimmed);
+
+    // Prevent the screen from turning off
+    if (isDimmed) {
+      document.body.style.setProperty('touch-action', 'none');
+    } else {
+      document.body.style.removeProperty('touch-action');
+    }
+  }
+
+  document.querySelector('.clock-section').addEventListener('touchstart', toggleClockDisplay);
 </script>
 </body>
 </html>
