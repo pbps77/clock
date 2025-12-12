@@ -341,12 +341,18 @@
         font-size: 1.1rem;
       }
     }
+    
+    /* Brightness levels */
+    .brightness-high {
+      opacity: 1;
+    }
+    .brightness-medium {
+      opacity: 0.6;
+    }
+    .brightness-low {
+      opacity: 0.3;
+    }
   </style>
-<style>
-  .dimmed {
-    opacity: 0.5;
-  }
-</style>
 </head>
 <body>
   <div class="container">
@@ -1006,22 +1012,30 @@
   window.addEventListener("DOMContentLoaded", initUI);
 </script>
 <script>
-  let isDimmed = false;
-
-  function toggleClockDisplay() {
+  // Brightness toggle functionality
+  let brightnessLevel = 0; // 0: high, 1: medium, 2: low
+  const brightnessClasses = ['brightness-high', 'brightness-medium', 'brightness-low'];
+  
+  function toggleBrightness() {
     const clockSection = document.querySelector('.clock-section');
-    isDimmed = !isDimmed;
-    clockSection.classList.toggle('dimmed', isDimmed);
-
-    // Prevent the screen from turning off
-    if (isDimmed) {
-      document.body.style.setProperty('touch-action', 'none');
-    } else {
-      document.body.style.removeProperty('touch-action');
-    }
+    
+    // Remove current brightness class
+    clockSection.classList.remove(...brightnessClasses);
+    
+    // Cycle to next brightness level
+    brightnessLevel = (brightnessLevel + 1) % 3;
+    
+    // Add new brightness class
+    clockSection.classList.add(brightnessClasses[brightnessLevel]);
   }
-
-  document.querySelector('.clock-section').addEventListener('touchstart', toggleClockDisplay);
+  
+  // Initialize with high brightness
+  window.addEventListener('DOMContentLoaded', () => {
+    const clockSection = document.querySelector('.clock-section');
+    clockSection.classList.add('brightness-high');
+    clockSection.addEventListener('touchstart', toggleBrightness);
+    clockSection.addEventListener('click', toggleBrightness);
+  });
 </script>
 </body>
 </html>
