@@ -200,10 +200,8 @@
     
     audio {
       width: 100%;
-      margin: 12px 0;
+      margin: 12px auto;
       max-width: 300px;
-      margin-left: 0;
-      margin-right: auto;
       display: block;
     }
     
@@ -397,7 +395,6 @@
         <!-- Audio Player -->
         <audio id="player"  controls></audio>
   
-                 <!--button id="stopBtn" style="width: 80px; height: 80px; font-size: 14px; border-radius: 8px;">정지</button-->  
       </div>
 
       <p class="tip" style="margin-top:12px">
@@ -450,7 +447,7 @@
   const PRESETS = [
     { id: "kbs-1fm", name: "KBS 1FM-classic", api: "https://cfpwwwapi.kbs.co.kr/api/v1/landing/live/channel_code/24", resolveFrom: "kbs" },
     { id: "kbs-2fm", name: "KBS 2FM", api: "https://cfpwwwapi.kbs.co.kr/api/v1/landing/live/channel_code/25", resolveFrom: "kbs" },
-    { id: "mbc-a_music", name: "MBC A Music", api: "https://sminiplay.imbc.com/aacplay.ashx?agent=webapp&channel=chm", resolveFrom: "mbc" },
+    { id: "mbc-a_music", name: "MBC All That Music", api: "https://sminiplay.imbc.com/aacplay.ashx?agent=webapp&channel=chm", resolveFrom: "mbc" },
     { id: "cbs-M", name: "CBS Music", url: "https://m-aac.cbs.co.kr/mweb_cbs939/_definst_/cbs939.stream/chunklist.m3u8", type: "application/vnd.apple.mpegurl" },
     { id: "cbs-standard", name: "CBS 표준FM", url: "https://m-aac.cbs.co.kr/mweb_cbs981/_definst_/cbs981.stream/chunklist.m3u8", type: "application/vnd.apple.mpegurl" },
     { id: "tbs-fm", name: "TBS FM", url: "https://cdnfm.tbs.seoul.kr/tbs/_definst_/tbs_fm_web_360.smil/playlist.m3u8", type: "application/vnd.apple.mpegurl" },
@@ -459,8 +456,8 @@
     //{ id: "gugak", name: "국악방송", url: "https://mgugaklive.nowcdn.co.kr/gugakradio/gugakradio.stream/playlist.m3u8", type: "application/vnd.apple.mpegurl" },
     { id: "afkn-daegu", name: "AFKN Daegu", url: "https://13743.live.streamtheworld.com/AFNP_DGUAAC.aac", type: "audio/aac" },
     { id: "afkn-tokyo", name: "AFN Tokyo", url: "https://25603.live.streamtheworld.com/AFNP_TKOAAC.aac", type: "audio/aac" },
-    { id: "afn-01-pop", name: "#1 Pop", url: "https://19273.live.streamtheworld.com/AFN01_S01AAC.aac", type: "audio/aac" },
-    { id: "afn-jazz", name: "Jazz", url: "https://19273.live.streamtheworld.com/AFN05_S01AAC.aac", type: "audio/aac" },
+    { id: "afn-01-pop", name: "AFN #1 Pop", url: "https://19273.live.streamtheworld.com/AFN01_S01AAC.aac", type: "audio/aac" },
+    { id: "afn-jazz", name: "AFN Jazz", url: "https://19273.live.streamtheworld.com/AFN05_S01AAC.aac", type: "audio/aac" },
     { id: "afn-rnb", name: "AFN The Groove", url: "https://17843.live.streamtheworld.com/AFN03_S01AAC.aac", type: "audio/aac" },
     { id: "afkn-okinawa", name: "AFN GO Gravity", url: "https://18243.live.streamtheworld.com/AFN_GRVAAC.aac", type: "audio/aac" }
   ];
@@ -609,10 +606,14 @@
   }
 
   function initUI(){
-    PRESETS.forEach(p=>{
+    PRESETS.forEach((p, index)=>{
       const b=document.createElement("button");
       b.textContent=p.name; b.title=p.note||""; b.dataset.id=p.id;
-      b.addEventListener("click", ()=> playSource(p));
+      b.addEventListener("click", ()=> {
+        playSource(p);
+        state.currentChannelIndex = index;
+        updateChannelDial();
+      });
       el.grid.appendChild(b);
     });
 
@@ -651,7 +652,7 @@
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       
-      // 각도 계산
+      // 각도 계산 (atan2는 수학 좌표계: 3시=0도, 6시=90도, 9시=180도, 12시=270도)
       let angle = Math.atan2(y - centerY, x - centerX) * (180 / Math.PI);
       
       // 0~360도로 정규화
@@ -659,21 +660,23 @@
         angle += 360;
       }
       
+      // 시계 방향 기준으로 변환 (12시=0도, 3시=90도, 6시=180도, 9시=270도)
+      angle = (angle + 90) % 360;
+      
       // 범위: 210도(7시, 0%) ~ 510도(150도 = 5시, 100%)
-      // 510도는 150도와 같음 (360도 더한 것)
-      // 210도부터 시계방향으로 300도 범위: 210 ~ 360 (150도) ~ 510도(= 150도)
+      // 210도부터 시계방향으로 300도 범위
       let volume = null;
       
-      if (angle >= 210) {
-        // 210도 이상은 범위 내
-        volume = ((angle - 210) / 300) * 100;
-      } else if (angle <= 150) {
-        // 150도 이하는 510도(=150도)를 지나온 경우
-        // angle = 0~150, 510도 = 150도이므로 가능
-        angle += 360; // 360도 더해서 510도 범위로 변환
+      // 0~150도 범위를 360~510도로 변환 (12시~5시 방향)
+      if (angle <= 150) {
+        angle += 360;
+      }
+      
+      // 이제 210~510도 범위에서 계산
+      if (angle >= 210 && angle <= 510) {
         volume = ((angle - 210) / 300) * 100;
       } else {
-        // 150도 < angle < 210도는 범위 밖
+        // 150도 < angle < 210도는 범위 밖 (데드존)
         return null;
       }
       
@@ -681,7 +684,16 @@
     }
     
     el.volumeDial.addEventListener('mousedown', (e) => {
+      e.preventDefault();
       isDragging = true;
+      const rect = el.volumeDial.getBoundingClientRect();
+      const volume = getVolumeFromAngle(e.clientX, e.clientY, rect);
+      if (volume !== null) updateVolumeDial(volume);
+    });
+
+    // Click event for immediate position update
+    el.volumeDial.addEventListener('click', (e) => {
+      e.preventDefault();
       const rect = el.volumeDial.getBoundingClientRect();
       const volume = getVolumeFromAngle(e.clientX, e.clientY, rect);
       if (volume !== null) updateVolumeDial(volume);
@@ -738,8 +750,8 @@
 
     // 채널 다이얼 기능
     function updateChannelDial() {
-      // 바늘이 12시 위치(0도)에서 시작하여 시계방향으로 회전
-      const rotation = (state.currentChannelIndex / PRESETS.length) * 360 - 90;
+      // 210도(7시, 0번 채널)에서 510도(150도 = 5시, 마지막 채널)까지 300도 범위
+      const rotation = 210 + (state.currentChannelIndex / PRESETS.length) * 300;
       el.channelDial.style.setProperty('--channel-dial-rotation', rotation + 'deg');
       el.channelLabel.textContent = `${state.currentChannelIndex + 1}/${PRESETS.length}`;
     }
@@ -768,24 +780,65 @@
     function getChannelFromAngle(x, y, rect) {
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
-      let angle = Math.atan2(y - centerY, x - centerX) * (180 / Math.PI) + 90;
+      
+      // 각도 계산 (atan2는 수학 좌표계: 3시=0도, 6시=90도, 9시=180도, 12시=270도)
+      let angle = Math.atan2(y - centerY, x - centerX) * (180 / Math.PI);
+      
+      // 시계 방향 기준으로 변환 (12시=0도, 3시=90도, 6시=180도, 9시=270도)
+      angle = angle + 90;
       if (angle < 0) angle += 360;
-      const channelIndex = Math.round((angle / 360) * PRESETS.length) % PRESETS.length;
+      
+      // 0~150도 범위를 360~510도로 변환 (12시~5시 방향)
+      if (angle <= 150) {
+        angle += 360;
+      }
+      
+      // 범위: 210도(7시, 0번 채널) ~ 510도(150도 = 5시, 마지막 채널)
+      if (angle < 210 || angle > 510) {
+        return null; // 범위 밖이면 null 반환
+      }
+      
+      // 210~510도 범위를 0~PRESETS.length로 변환
+      const channelIndex = Math.round(((angle - 210) / 300) * PRESETS.length) % PRESETS.length;
       return channelIndex;
     }
 
     el.channelDial.addEventListener('mousedown', (e) => {
+      e.preventDefault();
       isChannelDragging = true;
       lastChannelIndex = state.currentChannelIndex;
       channelDragStartX = e.clientX;
       channelDragStartY = e.clientY;
+      
+      // 클릭 시 즉시 해당 채널로 이동
+      const rect = el.channelDial.getBoundingClientRect();
+      const channel = getChannelFromAngle(e.clientX, e.clientY, rect);
+      if (channel !== null && channel !== state.currentChannelIndex) {
+        state.currentChannelIndex = channel;
+        updateChannelDial();
+        playSource(PRESETS[channel]);
+        el.audio.play().catch(()=>{});
+      }
+    });
+
+    // Click event for immediate channel change
+    el.channelDial.addEventListener('click', (e) => {
+      e.preventDefault();
+      const rect = el.channelDial.getBoundingClientRect();
+      const channel = getChannelFromAngle(e.clientX, e.clientY, rect);
+      if (channel !== null && channel !== state.currentChannelIndex) {
+        state.currentChannelIndex = channel;
+        updateChannelDial();
+        playSource(PRESETS[channel]);
+        el.audio.play().catch(()=>{});
+      }
     });
 
     document.addEventListener('mousemove', (e) => {
       if (!isChannelDragging) return;
       const rect = el.channelDial.getBoundingClientRect();
       const channel = getChannelFromAngle(e.clientX, e.clientY, rect);
-      if (channel !== state.currentChannelIndex) {
+      if (channel !== null && channel !== state.currentChannelIndex) {
         state.currentChannelIndex = channel;
         updateChannelDial();
         playTuningSound();
@@ -819,6 +872,17 @@
       const touch = e.touches[0];
       channelDragStartX = touch.clientX;
       channelDragStartY = touch.clientY;
+      
+      // 터치 시 즉시 해당 채널로 이동
+      const rect = el.channelDial.getBoundingClientRect();
+      const channel = getChannelFromAngle(touch.clientX, touch.clientY, rect);
+      if (channel !== null && channel !== state.currentChannelIndex) {
+        state.currentChannelIndex = channel;
+        updateChannelDial();
+        playSource(PRESETS[channel]);
+        el.audio.play().catch(()=>{});
+      }
+      e.preventDefault();
     });
 
     document.addEventListener('touchmove', (e) => {
@@ -826,7 +890,7 @@
       const rect = el.channelDial.getBoundingClientRect();
       const touch = e.touches[0];
       const channel = getChannelFromAngle(touch.clientX, touch.clientY, rect);
-      if (channel !== state.currentChannelIndex) {
+      if (channel !== null && channel !== state.currentChannelIndex) {
         state.currentChannelIndex = channel;
         updateChannelDial();
         playTuningSound();
