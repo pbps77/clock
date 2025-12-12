@@ -235,7 +235,7 @@
       top: 8px;
       left: 50%;
       width: 10px;
-      height: 56px;
+      height: 61px;
       background: var(--accent);
       transform-origin: bottom center;
       transform: translateX(-50%) rotate(var(--dial-rotation, -135deg));
@@ -281,7 +281,7 @@
       top: 8px;
       left: 50%;
       width: 10px;
-      height: 56px;
+      height: 61px;
       background: #ff9500;
       transform-origin: bottom center;
       transform: translateX(-50%) rotate(var(--channel-dial-rotation, 0deg));
@@ -360,7 +360,7 @@
           <div class="url" id="nowUrl">-</div>
         </div>
         <label class="switch">
-          <input type="hidden" id="autoplay" type="checkbox" checked />
+          <input type="checkbox" id="autoplay" checked style="display:none" aria-label="autoplay" />
           
         </label>
       </div>
@@ -462,7 +462,7 @@
     { id: "afkn-okinawa", name: "AFN GO Gravity", url: "https://18243.live.streamtheworld.com/AFN_GRVAAC.aac", type: "audio/aac" }
   ];
 
-  const state = { current: null, hls: null, currentChannelIndex: 0 };
+  const state = { current: null, hls: null, currentChannelIndex: 0, userPaused: false, userInteracted: false };
 
   
   const el = {
@@ -482,6 +482,8 @@
     channelLabel: document.getElementById("channelLabel")
   };
 
+  function markUserInteracted(){ state.userInteracted = true; state.userPaused = false; }
+
   function isHlsUrl(u=""){ return /.m3u8(\?|$)/i.test(u); }
   function setError(msg){ el.error.textContent = msg || ""; el.error.style.display = msg ? "block" : "none"; }
   function setNow(meta, resolvedUrl){
@@ -493,9 +495,9 @@
   }
   function cleanupHls(){ if(state.hls){ try{ state.hls.destroy(); }catch(e){} state.hls=null; } }
   function safePlay(){
+    el.audio.muted = false;
     el.audio.play().catch(()=>{
-      el.audio.muted = true;
-      el.audio.play().catch(()=> setError("자동재생이 차단되었습니다. 재생 버튼을 눌러주세요."));
+      setError("자동재생이 차단되었습니다. 재생 버튼을 눌러주세요.");
     });
   }
 
@@ -544,6 +546,7 @@
   
   async function playSource(meta){
     if(!meta) return;
+    el.audio.muted = false;
     cleanupHls();
     setError(""); setNow(meta);
     let url = meta.url;
@@ -557,13 +560,18 @@
     }
 
     setNow(meta, url);
-    
-    const shouldAutoPlay = el.autoplay.checked;
+    const allowAutoPlay = !state.userPaused;
+    el.audio.autoplay = allowAutoPlay;
+    const onCanPlayOnce = ()=>{
+      el.audio.removeEventListener("canplay", onCanPlayOnce);
+      if(allowAutoPlay) safePlay();
+    };
+    el.audio.addEventListener("canplay", onCanPlayOnce);
 
     if(isHlsUrl(url)){
       if(el.audio.canPlayType("application/vnd.apple.mpegurl")){
         el.audio.src = url;
-        if(shouldAutoPlay) safePlay();
+        if(allowAutoPlay) safePlay();
       }else if(Hls.isSupported()){
         state.hasAutoStarted = false;
         const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
@@ -571,7 +579,7 @@
         hls.loadSource(url);
         hls.attachMedia(el.audio);
         hls.on(Hls.Events.ERROR, (_evt, data)=>{ if(data?.fatal) setError("HLS fatal: "+data.type+" / "+(data.details||"")); });
-        if(shouldAutoPlay){
+        if(allowAutoPlay){
           hls.on(Hls.Events.MANIFEST_PARSED, ()=>{
             if(!state.hasAutoStarted && !state.userPaused){
               state.hasAutoStarted = true;
@@ -585,7 +593,7 @@
       }
     }else{
       el.audio.src = url;
-      if(shouldAutoPlay) safePlay();
+      if(allowAutoPlay) safePlay();
     }
     state.current = meta;
   }
@@ -593,6 +601,8 @@
   function stopPlayback(){
     const audio = el.audio;
     audio.pause();
+    audio.muted = false;
+    state.userPaused = true;
     if(state.hls){
       try{ if(typeof state.hls.stopLoad==='function') state.hls.stopLoad(); state.hls.destroy(); }catch(e){}
       state.hls=null;
@@ -610,6 +620,7 @@
       const b=document.createElement("button");
       b.textContent=p.name; b.title=p.note||""; b.dataset.id=p.id;
       b.addEventListener("click", ()=> {
+        markUserInteracted();
         playSource(p);
         state.currentChannelIndex = index;
         updateChannelDial();
@@ -623,6 +634,7 @@
     el.playCustom.addEventListener("click", ()=>{
       const u=(el.customUrl.value||"").trim();
       if(!u) return;
+      markUserInteracted();
       playSource({ id:"custom", name:"Custom", url:u });
     });
 
@@ -741,6 +753,7 @@
         }
          currStation =randomIndex;
         const randomStation = PRESETS[randomIndex];
+        markUserInteracted();
         state.currentChannelIndex = randomIndex;
        
         updateChannelDial();
@@ -756,19 +769,66 @@
       el.channelLabel.textContent = `${state.currentChannelIndex + 1}/${PRESETS.length}`;
     }
 
-    // 튜닝 소리 생성 함수
+    // 튜닝 소리 생성 함수 (랜덤화된 라디오 서치 톤)
     function playTuningSound() {
       try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.frequency.value = 800; // 튜닝 음파
-        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.1);
+        const now = audioContext.currentTime;
+
+        // 약간씩 다른 길이/밴드/스윕으로 랜덤한 감각을 만든다.
+        const duration = 0.26 + Math.random() * 0.14; // 0.26~0.40s
+        const bandFreq = 750 + Math.random() * 900;   // 750~1650 Hz
+        const bandQ = 0.9 + Math.random() * 1.2;      // 0.9~2.1
+        const oscStart = 900 + Math.random() * 600;   // 900~1500 Hz
+        const oscEnd = oscStart + 500 + Math.random() * 700; // +500~+1200
+        const noiseStart = 0.14 + Math.random() * 0.1; // 0.14~0.24 gain
+
+        // 화이트 노이즈 + 밴드패스
+        const buffer = audioContext.createBuffer(1, audioContext.sampleRate * duration, audioContext.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) {
+          const decay = 1 - i / data.length;
+          data[i] = (Math.random() * 2 - 1) * 0.35 * decay;
+        }
+
+        const noise = audioContext.createBufferSource();
+        noise.buffer = buffer;
+
+        const bandpass = audioContext.createBiquadFilter();
+        bandpass.type = "bandpass";
+        bandpass.frequency.value = bandFreq;
+        bandpass.Q.value = bandQ;
+
+        const noiseGain = audioContext.createGain();
+        noiseGain.gain.setValueAtTime(noiseStart, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + duration - 0.05);
+
+        // 스테레오 살짝 움직임
+        const panner = audioContext.createStereoPanner();
+        panner.pan.setValueAtTime(-0.25 + Math.random() * 0.5, now);
+
+        noise.connect(bandpass);
+        bandpass.connect(noiseGain);
+        noiseGain.connect(panner);
+        panner.connect(audioContext.destination);
+
+        // 얇은 스윕톤을 살짝 섞어 채널이 걸리는 느낌
+        const osc = audioContext.createOscillator();
+        osc.type = Math.random() > 0.5 ? "sine" : "triangle";
+        osc.frequency.setValueAtTime(oscStart, now);
+        osc.frequency.linearRampToValueAtTime(oscEnd, now + duration - 0.05);
+
+        const oscGain = audioContext.createGain();
+        oscGain.gain.setValueAtTime(0.04, now);
+        oscGain.gain.exponentialRampToValueAtTime(0.003, now + duration - 0.05);
+
+        osc.connect(oscGain);
+        oscGain.connect(audioContext.destination);
+
+        noise.start(now);
+        noise.stop(now + duration);
+        osc.start(now);
+        osc.stop(now + duration - 0.05);
       } catch(e) {}
     }
 
@@ -806,6 +866,7 @@
     el.channelDial.addEventListener('mousedown', (e) => {
       e.preventDefault();
       isChannelDragging = true;
+      markUserInteracted();
       lastChannelIndex = state.currentChannelIndex;
       channelDragStartX = e.clientX;
       channelDragStartY = e.clientY;
@@ -824,6 +885,7 @@
     // Click event for immediate channel change
     el.channelDial.addEventListener('click', (e) => {
       e.preventDefault();
+      markUserInteracted();
       const rect = el.channelDial.getBoundingClientRect();
       const channel = getChannelFromAngle(e.clientX, e.clientY, rect);
       if (channel !== null && channel !== state.currentChannelIndex) {
@@ -848,6 +910,7 @@
     document.addEventListener('mouseup', (e) => {
       if (!isChannelDragging) return;
       isChannelDragging = false;
+      el.audio.muted = false;
       
       // 방향 감지: X축 이동에 따라 다음/이전 채널로
       const deltaX = e.clientX - channelDragStartX;
@@ -868,6 +931,7 @@
 
     el.channelDial.addEventListener('touchstart', (e) => {
       isChannelDragging = true;
+      markUserInteracted();
       lastChannelIndex = state.currentChannelIndex;
       const touch = e.touches[0];
       channelDragStartX = touch.clientX;
@@ -900,6 +964,7 @@
     document.addEventListener('touchend', (e) => {
       if (!isChannelDragging) return;
       isChannelDragging = false;
+      el.audio.muted = false;
       
       // 방향 감지: X축 이동에 따라 다음/이전 채널로
       const touch = e.changedTouches[0];
@@ -924,7 +989,8 @@
     
     // 사용자 상호작용 후 자동재생 활성화 (브라우저 정책)
     document.addEventListener('click', function enableAutoplay() {
-      if(el.autoplay.checked && el.audio.paused){
+      markUserInteracted();
+      if(el.audio.paused){
         el.audio.muted = false;
         el.audio.play().catch(()=>{});
       }
